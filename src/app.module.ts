@@ -8,6 +8,7 @@ import { DebtModule } from './debt/debt.module';
 import { AdapterModule } from './adapter/adapter.module';
 import { EmbeddingModule } from './embedding/embedding.module';
 import { SearchModule } from './search/search.module';
+import { McpModule } from './mcp/mcp.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { SearchModule } from './search/search.module';
     DebtModule,
     AdapterModule,
     SearchModule,
+    McpModule,
   ],
   controllers: [AppController],
   providers: [AppService],
