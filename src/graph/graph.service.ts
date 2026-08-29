@@ -6,16 +6,15 @@ import { tasks } from '../database/schema';
 export class GraphService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDb) {}
 
-  listTasks() {
-    return this.db.select().from(tasks).all();
+  async listTasks() {
+    return this.db.select().from(tasks);
   }
 
-  createTask(id: string, title: string) {
-    const [task] = this.db
+  async createTask(id: string, title: string) {
+    const [task] = await this.db
       .insert(tasks)
       .values({ id, title })
-      .returning()
-      .all();
+      .returning();
     return task;
   }
 }

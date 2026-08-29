@@ -21,22 +21,32 @@ Good first issues are tagged
 git clone <this-repo>
 cd packetforge
 npm install
+docker compose up -d
+cp .env.example .env
+npm run db:migrate
 npm run start:dev
 ```
 
-You're running against a local SQLite file — nothing else to install or
-configure.
+You need a real Postgres with `pgvector` available — `docker compose up -d`
+gives you one. No Docker? Point `DATABASE_URL` in `.env` at any Postgres
+that has the `vector` extension installed.
 
 ## How we write tests
 
-**No mocks on the database.** Every test in this repo runs against a real
-SQLite database (`:memory:`, throwaway, created fresh per test). A mocked
-query builder can't tell you a foreign key constraint fired or that a
-migration produced the shape your code expects — a real database can, and
-it costs nothing here since SQLite starts in milliseconds. See
-`src/decision/decision.service.spec.ts` for the pattern: spin up an
-in-memory database, run the real migrations against it, inject it through
-Nest's testing module.
+**No mocks on the database.** Every test that touches persistence in this
+repo runs against a real Postgres — the same one `DATABASE_URL` points at,
+migrated (`npm run db:migrate`), not a mocked query builder. A mock can't
+tell you a foreign key constraint fired or that a migration produced the
+shape your code expects; a real database can. These suites skip themselves
+automatically when `DATABASE_URL` isn't set (`describeIfDb` at the top of
+each one) — set it before running `npm test` to actually exercise them. See
+`src/decision/decision.service.spec.ts` for the pattern: a real `pg` pool,
+truncated and re-seeded in `beforeEach`, injected through Nest's testing
+module.
+
+`npm test` runs every suite against one shared database in-band (`--runInBand`)
+on purpose — Jest's usual per-file parallelism would let two suites'
+`TRUNCATE`s race against each other on that same live database.
 
 Run the suite with:
 
@@ -86,8 +96,14 @@ editor plugin), you almost certainly don't need to touch anything outside
 
 ## Changing the database schema
 
-Never edit an existing entry in the `MIGRATIONS` array
-(`src/database/migrations.ts`) once it's shipped. Add a new one with the
-next version number, and bump `CURRENT_SCHEMA_VERSION` to match. This is
-what lets an existing database upgrade itself automatically instead of
-breaking on whatever shape it was left in.
+Edit `src/database/schema.ts`, then generate the migration instead of
+writing SQL by hand:
+
+```bash
+npm run db:generate
+```
+
+Never edit a migration file under `drizzle/` once it's committed and shipped
+— add a new schema change and generate a new migration instead. This is
+what lets an existing database upgrade itself (`npm run db:migrate`) instead
+of breaking on whatever shape it was left in.

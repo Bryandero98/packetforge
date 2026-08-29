@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: packetforge
+      POSTGRES_PASSWORD: packetforge
+      POSTGRES_DB: packetforge
+    ports:
+      - "5432:5432"
+    volumes:
+      - packetforge-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U packetforge"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  packetforge-postgres:

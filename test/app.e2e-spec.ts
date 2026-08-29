@@ -4,7 +4,12 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 
-describe('AppController (e2e)', () => {
+// Boots the full app, including DatabaseModule - needs a real, reachable
+// Postgres at DATABASE_URL. Skipped when that's not set (see
+// pg-exception-filter.e2e-spec.ts for the same gate and why).
+const describeIfDb = process.env.DATABASE_URL ? describe : describe.skip;
+
+describeIfDb('AppController (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeEach(async () => {
