@@ -50,9 +50,10 @@ in `.env` at any reachable Postgres with the `vector` extension available and
 skip the `docker compose` step.
 
 Semantic search (`GET /graph/search`) and computing embeddings on write need
-an `OPENAI_API_KEY` in `.env` — everything else (tasks, decisions, debt,
-adapters) works with no key configured. Without one, notes still save fine,
-just without an embedding.
+a `GEMINI_API_KEY` in `.env` — free, no card required, from
+[aistudio.google.com](https://aistudio.google.com) ("Get API key"). Everything
+else (tasks, decisions, debt, adapters) works with no key configured. Without
+one, notes still save fine, just without an embedding.
 
 ### Try it
 
@@ -70,7 +71,7 @@ curl -X POST localhost:3000/decisions \
 # Read it back
 curl localhost:3000/decisions?taskId=CARD-MODEL
 
-# Search by meaning, not literal text (needs OPENAI_API_KEY)
+# Search by meaning, not literal text (needs GEMINI_API_KEY)
 curl 'localhost:3000/graph/search?q=data+model+for+cards&limit=5'
 ```
 
@@ -115,7 +116,7 @@ src/
   decision/   why a task was built a certain way
   debt/       what's still wrong with a task
   adapter/    translates a packet into the shape a specific external tool expects
-  embedding/  EmbeddingProvider interface + the OpenAI reference implementation
+  embedding/  EmbeddingProvider interface + the Gemini reference implementation
   search/     GET /graph/search - semantic search over decisions and debt
   mcp/        POST /mcp - the same operations above as Model Context Protocol tools
   health/     GET /health - database connectivity + embedding provider config

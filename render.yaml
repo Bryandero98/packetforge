@@ -1,6 +1,6 @@
 # Render Blueprint - https://render.com/docs/blueprint-spec
 # Connect this repo on Render's dashboard ("New > Blueprint") and it reads
-# this file automatically; DATABASE_URL/OPENAI_API_KEY are marked
+# this file automatically; DATABASE_URL/GEMINI_API_KEY are marked
 # sync: false so Render prompts for them once instead of committing
 # secrets here.
 services:
@@ -12,7 +12,7 @@ services:
     envVars:
       - key: DATABASE_URL
         sync: false
-      - key: OPENAI_API_KEY
+      - key: GEMINI_API_KEY
         sync: false
       - key: PORT
         value: 3000

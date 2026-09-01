@@ -12,7 +12,7 @@ const describeIfDb = process.env.DATABASE_URL ? describe : describe.skip;
 describeIfDb('HealthService', () => {
   let service: HealthService;
   let pool: Pool;
-  const originalApiKey = process.env.OPENAI_API_KEY;
+  const originalApiKey = process.env.GEMINI_API_KEY;
 
   beforeEach(async () => {
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -28,9 +28,9 @@ describeIfDb('HealthService', () => {
   afterEach(async () => {
     await pool.end();
     if (originalApiKey === undefined) {
-      delete process.env.OPENAI_API_KEY;
+      delete process.env.GEMINI_API_KEY;
     } else {
-      process.env.OPENAI_API_KEY = originalApiKey;
+      process.env.GEMINI_API_KEY = originalApiKey;
     }
   });
 
@@ -41,16 +41,16 @@ describeIfDb('HealthService', () => {
     expect(result.checks.database).toBe('ok');
   });
 
-  it('reports the embedding provider as not-configured when OPENAI_API_KEY is unset', async () => {
-    delete process.env.OPENAI_API_KEY;
+  it('reports the embedding provider as not-configured when GEMINI_API_KEY is unset', async () => {
+    delete process.env.GEMINI_API_KEY;
 
     const result = await service.check();
 
     expect(result.checks.embeddingProvider).toBe('not-configured');
   });
 
-  it('reports the embedding provider as configured when OPENAI_API_KEY is set', async () => {
-    process.env.OPENAI_API_KEY = 'sk-test-key';
+  it('reports the embedding provider as configured when GEMINI_API_KEY is set', async () => {
+    process.env.GEMINI_API_KEY = 'test-key';
 
     const result = await service.check();
 

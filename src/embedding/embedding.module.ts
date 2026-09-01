@@ -1,5 +1,5 @@
 import { Global, Module } from '@nestjs/common';
-import { OpenAiEmbeddingProvider } from './providers/openai-embedding.provider';
+import { GeminiEmbeddingProvider } from './providers/gemini-embedding.provider';
 
 export const EMBEDDING_PROVIDER = Symbol('EMBEDDING_PROVIDER');
 
@@ -9,7 +9,7 @@ export const EMBEDDING_PROVIDER = Symbol('EMBEDDING_PROVIDER');
 @Global()
 @Module({
   providers: [
-    { provide: EMBEDDING_PROVIDER, useClass: OpenAiEmbeddingProvider },
+    { provide: EMBEDDING_PROVIDER, useClass: GeminiEmbeddingProvider },
   ],
   exports: [EMBEDDING_PROVIDER],
 })

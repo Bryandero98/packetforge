@@ -6,7 +6,7 @@ export interface HealthResult {
   readonly status: 'ok' | 'error';
   readonly checks: {
     readonly database: 'ok' | 'error';
-    /** Same lazy env-var check OpenAiEmbeddingProvider itself does at call time - not "misconfigured", since search/decisions/debt all work fine without one, just without an embedding. */
+    /** Same lazy env-var check GeminiEmbeddingProvider itself does at call time - not "misconfigured", since search/decisions/debt all work fine without one, just without an embedding. */
     readonly embeddingProvider: 'configured' | 'not-configured';
   };
 }
@@ -21,7 +21,7 @@ export class HealthService {
       status: database === 'ok' ? 'ok' : 'error',
       checks: {
         database,
-        embeddingProvider: process.env.OPENAI_API_KEY
+        embeddingProvider: process.env.GEMINI_API_KEY
           ? 'configured'
           : 'not-configured',
       },

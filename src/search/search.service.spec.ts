@@ -13,8 +13,8 @@ import { DEFAULT_SEARCH_LIMIT, SearchService } from './search.service';
 // itself is always 0 (similarity 1). That makes the *ranking* fully
 // predictable without depending on a real embedding model's notion of
 // semantic closeness - this suite proves the SQL (unionAll + cosineDistance
-// + join back to tasks) orders and scores correctly, not that OpenAI's
-// vectors are good. See openai-embedding.provider.spec.ts for the real
+// + join back to tasks) orders and scores correctly, not that Gemini's
+// vectors are good. See gemini-embedding.provider.spec.ts for the real
 // provider's own contract, and docs/epics/next-gen-features.md Phase 4 for
 // why the semantic-quality check needs a real API key instead.
 function oneHot(axis: number): number[] {

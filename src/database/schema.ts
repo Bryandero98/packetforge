@@ -7,9 +7,12 @@ import {
   vector,
 } from 'drizzle-orm/pg-core';
 
-// 1536 = OpenAI's text-embedding-3-small output size - see
-// src/embedding/openai-embedding.provider.ts. Shared here so the column
-// width and the provider that fills it can never silently drift apart.
+// 1536 = the output size GeminiEmbeddingProvider asks for via
+// outputDimensionality (Gemini's embedding model natively outputs 3072 dims
+// but supports Matryoshka truncation) - see
+// src/embedding/providers/gemini-embedding.provider.ts. Shared here so the
+// column width and the provider that fills it can never silently drift
+// apart.
 export const EMBEDDING_DIMENSIONS = 1536;
 
 /**

@@ -33,8 +33,9 @@ Every task gets two kinds of notes attached to it:
 - **Decisions** - why it was built the way it was.
 - **Debt** - what's still wrong with it, left for whatever depends on it.
 
-Both get embedded (OpenAI's `text-embedding-3-small`, pluggable behind a
-one-method `EmbeddingProvider` interface) so `GET /graph/search` finds them
+Both get embedded (Gemini's `gemini-embedding-001`, free tier, no card
+required - pluggable behind a one-method `EmbeddingProvider` interface) so
+`GET /graph/search` finds them
 by *meaning*, not literal text - search "how are cards modeled" and it
 surfaces the decision that said "plain object, no behavior yet," not just
 rows containing the word "model." Writing a near-duplicate decision on the

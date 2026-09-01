@@ -12,7 +12,7 @@ export interface GraphExport {
 // The whole graph is nowhere except this database - unlike code, it isn't
 // backed up just by being in git. Embeddings are included, not stripped
 // the way getPacket() strips them for an adapter: a real restore
-// shouldn't have to re-spend OPENAI_API_KEY calls (or silently lose
+// shouldn't have to re-spend GEMINI_API_KEY calls (or silently lose
 // semantic search until every note is rewritten) just because a backup
 // left them out.
 @Injectable()

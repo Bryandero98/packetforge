@@ -12,7 +12,7 @@ import type { DecisionConflict } from './dto/decision.dto';
 // task when they're this semantically close - high enough that the two are
 // very likely paraphrases or restatements of the same reasoning, not just
 // on a related topic. Not tuned against production data yet (no
-// OPENAI_API_KEY has been available to calibrate it against a real
+// GEMINI_API_KEY has been available to calibrate it against a real
 // embedding model) - a reasonable starting point per common practice for
 // near-duplicate detection, kept as one named constant so it's a single
 // place to adjust once real usage data exists.
