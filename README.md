@@ -7,6 +7,9 @@ that context to whatever agent or tool needs it, over a plain HTTP API.
 **Live demo:** [packetforge.onrender.com/dashboard](https://packetforge.onrender.com/dashboard)
 (free tier — spins down after inactivity, first load can take ~50s).
 
+**Write-up:** [Your AI Agent Forgot Why It Did That. PacketForge Is the Fix.](https://dev.to/bryandero98/your-ai-agent-forgot-why-it-did-that-packetforge-is-the-fix-2b66)
+on dev.to.
+
 Two notes travel with a task, for two different reasons:
 
 - **Debt** — a known limitation a task leaves for whatever depends on it.
