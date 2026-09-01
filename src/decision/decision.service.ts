@@ -1,5 +1,6 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, cosineDistance, eq, isNotNull, sql } from 'drizzle-orm';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { DRIZZLE, type DrizzleDb } from '../database/database.module';
 import { decisions, tasks } from '../database/schema';
 import { embedSafely } from '../embedding/embed-safely';
@@ -29,6 +30,7 @@ export class DecisionService {
     @Inject(DRIZZLE) private readonly db: DrizzleDb,
     @Inject(EMBEDDING_PROVIDER)
     private readonly embeddingProvider: EmbeddingProvider,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   async addDecision(taskId: string, note: string) {
@@ -56,6 +58,12 @@ export class DecisionService {
       .insert(decisions)
       .values({ taskId, note, embedding })
       .returning();
+    await this.auditLogService.record(
+      'decision',
+      String(decision.id),
+      'created',
+      task.projectId,
+    );
     return { ...decision, conflicts };
   }
 

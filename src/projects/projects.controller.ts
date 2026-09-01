@@ -5,6 +5,8 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { WRITE_THROTTLE } from '../common/write-throttle';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { ProjectDto } from './dto/project.dto';
 import { ProjectsService } from './projects.service';
@@ -24,6 +26,7 @@ export class ProjectsController {
   }
 
   @Post()
+  @Throttle(WRITE_THROTTLE)
   @ApiOperation({
     summary:
       'Create a project - the workspace tasks are scoped under, one PacketForge deployment can now serve several',

@@ -1,6 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { DRIZZLE } from '../database/database.module';
 import * as schema from '../database/schema';
 import { ProjectsService } from './projects.service';
@@ -20,6 +21,7 @@ describeIfDb('ProjectsService', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         ProjectsService,
+        AuditLogService,
         { provide: DRIZZLE, useValue: drizzle(pool, { schema }) },
       ],
     }).compile();

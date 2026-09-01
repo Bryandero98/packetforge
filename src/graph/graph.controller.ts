@@ -21,8 +21,10 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import type { PacketAdapter } from '../adapter/adapter.interface';
 import { AdapterService } from '../adapter/adapter.service';
+import { WRITE_THROTTLE } from '../common/write-throttle';
 import { GraphService } from './graph.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { PacketDto } from './dto/packet.dto';
@@ -55,6 +57,7 @@ export class GraphController {
   }
 
   @Post()
+  @Throttle(WRITE_THROTTLE)
   @ApiOperation({
     summary: 'Create a task - the node the rest of the graph hangs off of',
   })
@@ -75,6 +78,7 @@ export class GraphController {
   }
 
   @Patch(':id')
+  @Throttle(WRITE_THROTTLE)
   @ApiOperation({ summary: "Update a task's status" })
   @ApiParam({ name: 'id', example: 'CARD-MODEL' })
   @ApiOkResponse({ type: TaskDto })
@@ -113,6 +117,7 @@ export class GraphController {
   }
 
   @Delete(':id')
+  @Throttle(WRITE_THROTTLE)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary:

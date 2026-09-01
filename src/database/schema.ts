@@ -87,3 +87,20 @@ export const debt = pgTable(
     ),
   ],
 );
+
+/**
+ * Who/what/when for every write - deliberately no foreign keys to
+ * tasks/projects: a delete cascading into the audit trail of its own
+ * deletion would erase the one record proving the delete happened. Rows
+ * here outlive the entity they describe on purpose.
+ */
+export const auditLog = pgTable('audit_log', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+  entityType: text('entity_type').notNull(),
+  entityId: text('entity_id').notNull(),
+  action: text('action').notNull(),
+  projectId: text('project_id'),
+  occurredAt: timestamp('occurred_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});

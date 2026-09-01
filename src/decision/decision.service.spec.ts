@@ -1,6 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { DRIZZLE } from '../database/database.module';
 import { EMBEDDING_PROVIDER } from '../embedding/embedding.module';
 import type { EmbeddingProvider } from '../embedding/embedding-provider.interface';
@@ -68,7 +69,7 @@ describeIfDb('DecisionService', () => {
   beforeEach(async () => {
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
     await pool.query(
-      'TRUNCATE tasks, decisions, debt RESTART IDENTITY CASCADE',
+      'TRUNCATE tasks, decisions, debt, audit_log RESTART IDENTITY CASCADE',
     );
     await pool.query(
       `INSERT INTO tasks (id, title) VALUES ('TASK-1', 'Example task')`,
@@ -77,6 +78,7 @@ describeIfDb('DecisionService', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         DecisionService,
+        AuditLogService,
         { provide: DRIZZLE, useValue: drizzle(pool, { schema }) },
         { provide: EMBEDDING_PROVIDER, useClass: FakeEmbeddingProvider },
       ],
@@ -116,7 +118,7 @@ describeIfDb('DecisionService conflict detection', () => {
   beforeEach(async () => {
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
     await pool.query(
-      'TRUNCATE tasks, decisions, debt RESTART IDENTITY CASCADE',
+      'TRUNCATE tasks, decisions, debt, audit_log RESTART IDENTITY CASCADE',
     );
     await pool.query(
       `INSERT INTO tasks (id, title) VALUES ('TASK-1', 'Example task')`,
@@ -125,6 +127,7 @@ describeIfDb('DecisionService conflict detection', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         DecisionService,
+        AuditLogService,
         {
           provide: DRIZZLE,
           useValue: drizzle(pool, { schema }),

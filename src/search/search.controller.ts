@@ -5,13 +5,22 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
+import { DEFAULT_TIMELINE_LIMIT, GraphService } from '../graph/graph.service';
 import { DEFAULT_SEARCH_LIMIT, SearchService } from './search.service';
 import { SearchResultDto } from './dto/search-result.dto';
+import { TimelineEntryDto } from './dto/timeline-entry.dto';
 
+// Owns every read-only, cross-task view under /graph - search and the
+// timeline both need to join decisions/debt back to their parent task
+// the same way, and neither is a task-CRUD operation that belongs on
+// GraphController.
 @ApiTags('search')
 @Controller('graph')
 export class SearchController {
-  constructor(private readonly searchService: SearchService) {}
+  constructor(
+    private readonly searchService: SearchService,
+    private readonly graphService: GraphService,
+  ) {}
 
   @Get('search')
   @ApiOperation({
@@ -51,5 +60,35 @@ export class SearchController {
     }
 
     return this.searchService.search(q, parsedLimit, projectId);
+  }
+
+  @Get('timeline')
+  @ApiOperation({
+    summary:
+      'Every decision and debt note in chronological order, newest first, each with its parent task inline - a git-log-style view search cannot give you',
+  })
+  @ApiQuery({
+    name: 'projectId',
+    required: false,
+    description: 'Filter to one project.',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: `Max entries, default ${DEFAULT_TIMELINE_LIMIT}, capped at 200`,
+  })
+  @ApiOkResponse({ type: [TimelineEntryDto] })
+  timeline(
+    @Query('projectId') projectId?: string,
+    @Query('limit') limit?: string,
+  ) {
+    if (limit === undefined) {
+      return this.graphService.getTimeline(projectId);
+    }
+    const parsedLimit = Number(limit);
+    if (Number.isNaN(parsedLimit)) {
+      throw new BadRequestException('query param "limit" must be a number');
+    }
+    return this.graphService.getTimeline(projectId, parsedLimit);
   }
 }

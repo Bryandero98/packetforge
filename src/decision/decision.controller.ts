@@ -6,6 +6,8 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { WRITE_THROTTLE } from '../common/write-throttle';
 import { DecisionService } from './decision.service';
 import { CreateDecisionDto } from './dto/create-decision.dto';
 import { DecisionDto } from './dto/decision.dto';
@@ -24,6 +26,7 @@ export class DecisionController {
   }
 
   @Post()
+  @Throttle(WRITE_THROTTLE)
   @ApiOperation({ summary: 'Record why a task was built the way it was' })
   @ApiCreatedResponse({ type: DecisionDto })
   add(@Body() body: CreateDecisionDto) {

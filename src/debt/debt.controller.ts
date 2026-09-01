@@ -6,6 +6,8 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { WRITE_THROTTLE } from '../common/write-throttle';
 import { DebtService } from './debt.service';
 import { CreateDebtDto } from './dto/create-debt.dto';
 import { DebtDto } from './dto/debt.dto';
@@ -24,6 +26,7 @@ export class DebtController {
   }
 
   @Post()
+  @Throttle(WRITE_THROTTLE)
   @ApiOperation({
     summary:
       'Record a known limitation a task leaves for whatever depends on it',

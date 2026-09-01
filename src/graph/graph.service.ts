@@ -1,12 +1,20 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { desc, eq, sql } from 'drizzle-orm';
+import { unionAll } from 'drizzle-orm/pg-core';
 import type { Packet } from '../adapter/adapter.interface';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { DRIZZLE, type DrizzleDb } from '../database/database.module';
 import { debt, decisions, tasks } from '../database/schema';
 
+export const DEFAULT_TIMELINE_LIMIT = 50;
+export const MAX_TIMELINE_LIMIT = 200;
+
 @Injectable()
 export class GraphService {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDb) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDb,
+    private readonly auditLogService: AuditLogService,
+  ) {}
 
   async listTasks(projectId?: string) {
     const query = this.db.select().from(tasks);
@@ -21,6 +29,12 @@ export class GraphService {
       .insert(tasks)
       .values({ id, title, ...(projectId ? { projectId } : {}) })
       .returning();
+    await this.auditLogService.record(
+      'task',
+      task.id,
+      'created',
+      task.projectId,
+    );
     return task;
   }
 
@@ -65,6 +79,69 @@ export class GraphService {
     };
   }
 
+  // Every decision and debt note (embedded or not - unlike search, this
+  // never filters on embedding presence) in chronological order, newest
+  // first, each with its parent task inline - a git-log-style view of
+  // "what got recorded, and when" that GET /graph/search's similarity
+  // ranking can't answer (it only surfaces what's relevant to a query,
+  // never "show me everything in order").
+  async getTimeline(projectId?: string, limit = DEFAULT_TIMELINE_LIMIT) {
+    const boundedLimit = Math.min(Math.max(limit, 1), MAX_TIMELINE_LIMIT);
+
+    const decisionRows = this.db
+      .select({
+        taskId: tasks.id,
+        taskProjectId: tasks.projectId,
+        taskTitle: tasks.title,
+        taskStatus: tasks.status,
+        kind: sql<'decision' | 'debt'>`'decision'`.as('kind'),
+        note: decisions.note,
+        occurredAt: sql<Date>`${decisions.loggedAt}`.as('occurredAt'),
+      })
+      .from(decisions)
+      .innerJoin(tasks, eq(decisions.taskId, tasks.id));
+    const decisionEntries = projectId
+      ? decisionRows.where(eq(tasks.projectId, projectId))
+      : decisionRows;
+
+    const debtRows = this.db
+      .select({
+        taskId: tasks.id,
+        taskProjectId: tasks.projectId,
+        taskTitle: tasks.title,
+        taskStatus: tasks.status,
+        kind: sql<'decision' | 'debt'>`'debt'`.as('kind'),
+        note: debt.note,
+        occurredAt: sql<Date>`${debt.loggedAt}`.as('occurredAt'),
+      })
+      .from(debt)
+      .innerJoin(tasks, eq(debt.taskId, tasks.id));
+    const debtEntries = projectId
+      ? debtRows.where(eq(tasks.projectId, projectId))
+      : debtRows;
+
+    const rows = await unionAll(decisionEntries, debtEntries)
+      .orderBy(desc(sql.identifier('occurredAt')))
+      .limit(boundedLimit);
+
+    return rows.map((row) => ({
+      task: {
+        id: row.taskId,
+        projectId: row.taskProjectId,
+        title: row.taskTitle,
+        status: row.taskStatus,
+      },
+      kind: row.kind,
+      note: row.note,
+      // Unlike a plain typed column select, a raw sql<> fragment (needed
+      // here for the .as('occurredAt') alias the union/orderBy requires)
+      // doesn't go through drizzle's own date deserializer - confirmed
+      // live this arrives as a string, not a Date, so new Date(...) first
+      // is required, not defensive-for-no-reason.
+      occurredAt: new Date(row.occurredAt).toISOString(),
+    }));
+  }
+
   async updateTaskStatus(id: string, status: string) {
     const [task] = await this.db
       .update(tasks)
@@ -74,6 +151,12 @@ export class GraphService {
     if (!task) {
       throw new NotFoundException(`no such task: ${id}`);
     }
+    await this.auditLogService.record(
+      'task',
+      task.id,
+      'updated',
+      task.projectId,
+    );
     return task;
   }
 
@@ -89,5 +172,11 @@ export class GraphService {
     if (!task) {
       throw new NotFoundException(`no such task: ${id}`);
     }
+    await this.auditLogService.record(
+      'task',
+      task.id,
+      'deleted',
+      task.projectId,
+    );
   }
 }

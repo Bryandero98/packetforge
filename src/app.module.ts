@@ -1,7 +1,10 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseModule } from './database/database.module';
+import { AuditLogModule } from './audit-log/audit-log.module';
 import { GraphModule } from './graph/graph.module';
 import { DecisionModule } from './decision/decision.module';
 import { DebtModule } from './debt/debt.module';
@@ -17,7 +20,14 @@ import { RequestLoggerMiddleware } from './logging/request-logger.middleware';
 
 @Module({
   imports: [
+    // Generous global default (100 req/min per IP) - cheap insurance now
+    // that this is agent-facing and, before auth exists, unauthenticated:
+    // an agent stuck in a retry loop shouldn't be able to hammer the
+    // database unbounded. Individual write endpoints layer a stricter
+    // @Throttle() on top (see graph/decision/debt/projects controllers).
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     DatabaseModule,
+    AuditLogModule,
     EmbeddingModule,
     ProjectsModule,
     GraphModule,
@@ -31,7 +41,7 @@ import { RequestLoggerMiddleware } from './logging/request-logger.middleware';
     DashboardModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {

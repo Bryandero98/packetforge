@@ -1,6 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { DRIZZLE } from '../database/database.module';
 import * as schema from '../database/schema';
 import { GraphService } from './graph.service';
@@ -16,7 +17,7 @@ describeIfDb('GraphService', () => {
   beforeEach(async () => {
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
     await pool.query(
-      'TRUNCATE tasks, decisions, debt RESTART IDENTITY CASCADE',
+      'TRUNCATE tasks, decisions, debt, audit_log RESTART IDENTITY CASCADE',
     );
     // Tasks cascade-delete on their project, so this must run after the
     // tasks truncate above, not before. "default" is never removed - see
@@ -26,6 +27,7 @@ describeIfDb('GraphService', () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         GraphService,
+        AuditLogService,
         { provide: DRIZZLE, useValue: drizzle(pool, { schema }) },
       ],
     }).compile();
@@ -169,5 +171,65 @@ describeIfDb('GraphService', () => {
     const all = await service.listTasks();
 
     expect(all.map((t) => t.id).sort()).toEqual(['CARD-MODEL', 'SWEEP']);
+  });
+
+  it('getTimeline merges decisions and debt in chronological order, newest first', async () => {
+    await service.createTask('CARD-MODEL', 'Card domain model');
+    await pool.query(
+      `INSERT INTO decisions (task_id, note, logged_at) VALUES ('CARD-MODEL', 'first decision', now() - interval '2 minutes')`,
+    );
+    await pool.query(
+      `INSERT INTO debt (task_id, note, logged_at) VALUES ('CARD-MODEL', 'the debt', now() - interval '1 minute')`,
+    );
+    await pool.query(
+      `INSERT INTO decisions (task_id, note, logged_at) VALUES ('CARD-MODEL', 'latest decision', now())`,
+    );
+
+    const timeline = await service.getTimeline();
+
+    expect(timeline.map((e) => e.note)).toEqual([
+      'latest decision',
+      'the debt',
+      'first decision',
+    ]);
+    expect(timeline[0].kind).toBe('decision');
+    expect(timeline[0].task).toEqual({
+      id: 'CARD-MODEL',
+      projectId: 'default',
+      title: 'Card domain model',
+      status: 'pending',
+    });
+  });
+
+  it('getTimeline(projectId) only includes entries from tasks in that project', async () => {
+    await pool.query(
+      `INSERT INTO projects (id, name) VALUES ('onramp', 'onramp')`,
+    );
+    await service.createTask('CARD-MODEL', 'Card domain model');
+    await service.createTask('SWEEP', 'Installation sweep', 'onramp');
+    await pool.query(
+      `INSERT INTO decisions (task_id, note) VALUES ('CARD-MODEL', 'default project decision')`,
+    );
+    await pool.query(
+      `INSERT INTO decisions (task_id, note) VALUES ('SWEEP', 'onramp project decision')`,
+    );
+
+    const onrampTimeline = await service.getTimeline('onramp');
+
+    expect(onrampTimeline).toHaveLength(1);
+    expect(onrampTimeline[0].note).toBe('onramp project decision');
+  });
+
+  it('getTimeline respects a custom limit', async () => {
+    await service.createTask('CARD-MODEL', 'Card domain model');
+    for (let i = 0; i < 5; i++) {
+      await pool.query(
+        `INSERT INTO decisions (task_id, note) VALUES ('CARD-MODEL', 'decision ${i}')`,
+      );
+    }
+
+    const limited = await service.getTimeline(undefined, 2);
+
+    expect(limited).toHaveLength(2);
   });
 });

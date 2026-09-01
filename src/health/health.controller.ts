@@ -1,5 +1,6 @@
 import { Controller, Get, HttpStatus, Res } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { HealthService } from './health.service';
 
@@ -8,7 +9,10 @@ import { HealthService } from './health.service';
 // liveness probe, or a load balancer needs to be able to hit without any
 // setup. 503 (not 200-with-a-status-field-nobody-checks) when the database
 // is unreachable, so a naive "is this a 2xx" check still does the right
-// thing.
+// thing. Exempt from the global rate limit for the same reason - a
+// monitor polling every few seconds is exactly what this endpoint exists
+// to serve, not abuse.
+@SkipThrottle()
 @ApiTags('health')
 @Controller('health')
 export class HealthController {
