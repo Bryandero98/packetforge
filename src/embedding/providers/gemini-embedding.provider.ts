@@ -24,17 +24,14 @@ export class GeminiEmbeddingProvider implements EmbeddingProvider {
       );
     }
 
-    const response = await fetch(
-      `${GEMINI_EMBEDDINGS_URL}?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: { parts: [{ text }] },
-          outputDimensionality: EMBEDDING_DIMENSIONS,
-        }),
-      },
-    );
+    const response = await fetch(`${GEMINI_EMBEDDINGS_URL}?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: { parts: [{ text }] },
+        outputDimensionality: EMBEDDING_DIMENSIONS,
+      }),
+    });
 
     if (!response.ok) {
       const body = await response.text();
