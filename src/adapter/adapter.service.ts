@@ -1,13 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import type { PacketAdapter } from './adapter.interface';
+import { CursorAdapter } from './adapters/cursor.adapter';
 import { GenericJsonAdapter } from './adapters/generic-json.adapter';
 
 @Injectable()
 export class AdapterService {
   private readonly adapters = new Map<string, PacketAdapter>();
 
-  constructor(genericJsonAdapter: GenericJsonAdapter) {
+  constructor(
+    genericJsonAdapter: GenericJsonAdapter,
+    cursorAdapter: CursorAdapter,
+  ) {
     this.register(genericJsonAdapter);
+    this.register(cursorAdapter);
   }
 
   register(adapter: PacketAdapter): void {

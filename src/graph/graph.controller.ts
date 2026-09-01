@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -8,6 +9,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import {
   ApiCreatedResponse,
@@ -16,18 +18,27 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
+import type { PacketAdapter } from '../adapter/adapter.interface';
+import { AdapterService } from '../adapter/adapter.service';
 import { GraphService } from './graph.service';
 import { CreateTaskDto } from './dto/create-task.dto';
+import { PacketDto } from './dto/packet.dto';
 import { TaskDto } from './dto/task.dto';
 import { TaskDetailDto } from './dto/task-detail.dto';
 import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
 
+const DEFAULT_ADAPTER = 'generic-json';
+
 @ApiTags('tasks')
 @Controller('graph/tasks')
 export class GraphController {
-  constructor(private readonly graphService: GraphService) {}
+  constructor(
+    private readonly graphService: GraphService,
+    private readonly adapterService: AdapterService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'List every task' })
@@ -63,6 +74,35 @@ export class GraphController {
   @ApiNotFoundResponse()
   updateTaskStatus(@Param('id') id: string, @Body() body: UpdateTaskStatusDto) {
     return this.graphService.updateTaskStatus(id, body.status);
+  }
+
+  @Get(':id/packet')
+  @ApiOperation({
+    summary:
+      "Read a task's full context formatted for a specific tool (an AI editor, a CLI, a custom integration) via a registered adapter",
+  })
+  @ApiParam({ name: 'id', example: 'CARD-MODEL' })
+  @ApiQuery({
+    name: 'adapter',
+    required: false,
+    description: `Adapter name (default "${DEFAULT_ADAPTER}") - GET /adapters lists what's registered.`,
+  })
+  @ApiOkResponse({ type: PacketDto })
+  @ApiNotFoundResponse()
+  async getPacket(
+    @Param('id') id: string,
+    @Query('adapter') adapterName: string = DEFAULT_ADAPTER,
+  ): Promise<PacketDto> {
+    const packet = await this.graphService.getPacket(id);
+    let adapter: PacketAdapter;
+    try {
+      adapter = this.adapterService.get(adapterName);
+    } catch {
+      throw new BadRequestException(
+        `no such adapter: "${adapterName}" - see GET /adapters for what's registered.`,
+      );
+    }
+    return { adapter: adapter.name, content: adapter.format(packet) };
   }
 
   @Delete(':id')

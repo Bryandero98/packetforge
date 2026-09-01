@@ -1,5 +1,6 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
+import type { Packet } from '../adapter/adapter.interface';
 import { DRIZZLE, type DrizzleDb } from '../database/database.module';
 import { debt, decisions, tasks } from '../database/schema';
 
@@ -34,6 +35,25 @@ export class GraphService {
     ]);
 
     return { ...task, decisions: taskDecisions, debt: taskDebt };
+  }
+
+  // Same source of truth as getTaskDetail, reshaped into the Packet an
+  // adapter actually formats - strips id/taskId/embedding, none of which
+  // any adapter's consumer (a human, an AI tool's context window) has a
+  // use for.
+  async getPacket(id: string): Promise<Packet> {
+    const detail = await this.getTaskDetail(id);
+    return {
+      task: { id: detail.id, title: detail.title, status: detail.status },
+      decisions: detail.decisions.map((entry) => ({
+        note: entry.note,
+        loggedAt: entry.loggedAt.toISOString(),
+      })),
+      debt: detail.debt.map((entry) => ({
+        note: entry.note,
+        loggedAt: entry.loggedAt.toISOString(),
+      })),
+    };
   }
 
   async updateTaskStatus(id: string, status: string) {

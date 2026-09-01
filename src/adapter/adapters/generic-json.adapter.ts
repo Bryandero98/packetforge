@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { PacketAdapter } from '../adapter.interface';
+import type { Packet, PacketAdapter } from '../adapter.interface';
 
 // The reference adapter: no tool-specific formatting, just the packet as
 // pretty-printed JSON. Every new adapter (Claude Code, Cursor, Aider, a
@@ -9,7 +9,7 @@ import type { PacketAdapter } from '../adapter.interface';
 export class GenericJsonAdapter implements PacketAdapter {
   readonly name = 'generic-json';
 
-  format(packet: unknown): string {
+  format(packet: Packet): string {
     return JSON.stringify(packet, null, 2);
   }
 }

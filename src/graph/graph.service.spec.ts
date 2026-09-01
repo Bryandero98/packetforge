@@ -91,4 +91,32 @@ describeIfDb('GraphService', () => {
       'no such task: NO-SUCH-TASK',
     );
   });
+
+  it('getPacket strips id/taskId/embedding, converting loggedAt to an ISO string', async () => {
+    await service.createTask('CARD-MODEL', 'Card domain model');
+    await pool.query(
+      `INSERT INTO decisions (task_id, note) VALUES ('CARD-MODEL', 'Plain object, no behavior yet')`,
+    );
+
+    const packet = await service.getPacket('CARD-MODEL');
+
+    expect(packet.task).toEqual({
+      id: 'CARD-MODEL',
+      title: 'Card domain model',
+      status: 'pending',
+    });
+    expect(packet.debt).toEqual([]);
+    expect(packet.decisions).toHaveLength(1);
+    expect(packet.decisions[0].note).toBe('Plain object, no behavior yet');
+    expect(typeof packet.decisions[0].loggedAt).toBe('string');
+    expect(new Date(packet.decisions[0].loggedAt).toString()).not.toBe(
+      'Invalid Date',
+    );
+  });
+
+  it('getPacket rejects a task that does not exist', async () => {
+    await expect(service.getPacket('NO-SUCH-TASK')).rejects.toThrow(
+      'no such task: NO-SUCH-TASK',
+    );
+  });
 });
