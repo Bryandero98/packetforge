@@ -68,4 +68,55 @@ describe('GeminiEmbeddingProvider', () => {
       /Gemini embeddings request failed \(401\)/,
     );
   });
+
+  it('retries after a 429 and returns the embedding from the retry', async () => {
+    jest.useFakeTimers();
+    process.env.GEMINI_API_KEY = 'test-key';
+    const fakeEmbedding = new Array<number>(EMBEDDING_DIMENSIONS).fill(0.5);
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        text: () => Promise.resolve('rate limited'),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ embedding: { values: fakeEmbedding } }),
+      });
+    global.fetch = fetchMock;
+
+    const resultPromise = provider.embed('text');
+    await jest.advanceTimersByTimeAsync(1000);
+    const result = await resultPromise;
+
+    expect(result).toEqual(fakeEmbedding);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    jest.useRealTimers();
+  });
+
+  it('gives up after exhausting retries on repeated 429s', async () => {
+    jest.useFakeTimers();
+    process.env.GEMINI_API_KEY = 'test-key';
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 429,
+      text: () => Promise.resolve('rate limited'),
+    });
+    global.fetch = fetchMock;
+
+    const resultPromise = provider
+      .embed('text')
+      .catch((error: unknown) => error);
+    await jest.advanceTimersByTimeAsync(1000);
+    await jest.advanceTimersByTimeAsync(2000);
+    const result = await resultPromise;
+
+    expect(result).toBeInstanceOf(Error);
+    expect((result as Error).message).toMatch(
+      /Gemini embeddings request failed \(429\)/,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    jest.useRealTimers();
+  });
 });
