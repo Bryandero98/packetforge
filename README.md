@@ -4,6 +4,9 @@ PacketForge is a tool-agnostic context server for AI coding agents. It holds
 a build graph — tasks, and two kinds of notes attached to them — and hands
 that context to whatever agent or tool needs it, over a plain HTTP API.
 
+**Live demo:** [packetforge.onrender.com/dashboard](https://packetforge.onrender.com/dashboard)
+(free tier — spins down after inactivity, first load can take ~50s).
+
 Two notes travel with a task, for two different reasons:
 
 - **Debt** — a known limitation a task leaves for whatever depends on it.

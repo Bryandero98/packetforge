@@ -2,6 +2,8 @@
 
 # Your AI Agent Forgot Why It Did That. PacketForge Is the Fix.
 
+**Try it live:** [packetforge.onrender.com/dashboard](https://packetforge.onrender.com/dashboard) · Repo (MIT): https://github.com/Bryandero98/packetforge
+
 ## The pain
 
 An AI coding agent burns through a task graph fast - ten tasks in an
@@ -72,6 +74,37 @@ process is running"), `GET /export` (the whole graph as one JSON document
 - this data lives nowhere except the database, unlike code), and
 structured JSON request logging with a correlatable request id.
 
+**A chronological timeline.** `GET /graph/timeline` merges every decision
+and every piece of debt across the whole graph (or one project) into a
+single feed ordered by when it actually happened - "what did this agent
+*do*, in order" instead of hunting per-task.
+
+**An audit log.** Every create/update/delete on a task, decision, debt
+entry, or project now writes a row to `GET /audit-log` - who touched what,
+and when, independent of the graph data itself. It's the boring
+infrastructure a shared, multi-agent memory store needs before you'd trust
+it in anything real.
+
+**Rate limiting.** Write routes are capped (20/min by default, configurable
+per route) via `@nestjs/throttler` - the same protection any public write
+API needs once more than one agent can reach it at once.
+
+**The dashboard learned two more tabs and a second language.** Board is
+still there, but now it sits next to a Timeline tab and an Audit Log tab -
+same page, same live data, no separate tool. Everything - labels, empty
+states, the project picker - now also renders in Spanish, toggled from the
+header and remembered per browser.
+
+## Try it without installing anything
+
+The link above is a live instance - Kanban board, timeline, audit log, all
+of it. It starts empty; `POST` a task to it (see the tutorial below) and
+watch it show up on the board in real time. It's the fastest way to see
+what an agent-shared task graph actually looks like before deciding
+whether to self-host one. It's on Render's free tier, so the first request
+after a quiet period takes ~50s to wake up - after that it's normal
+speed.
+
 ## Quick tutorial
 
 ```sh
@@ -112,3 +145,9 @@ Open issues if you want to try one:
 [good first issue](https://github.com/Bryandero98/packetforge/issues).
 
 Repo (MIT): https://github.com/Bryandero98/packetforge
+
+---
+
+If this is useful to you, a [Ko-fi](https://ko-fi.com/bryandero98) or a bit
+of USDT goes a long way for a solo-maintained project - both are linked in
+the repo's README.
