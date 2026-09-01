@@ -3,8 +3,11 @@
 // meant to be opened directly in a browser by a human, not consumed by a
 // tool or an agent. Every request it makes is to PacketForge's own
 // already-existing REST API (GET /projects, GET/POST /graph/tasks,
-// GET /graph/tasks/:id, GET /graph/search) - no new backend surface
-// exists just for this page.
+// GET /graph/tasks/:id, GET /graph/search, GET /graph/timeline,
+// GET /audit-log) - no new backend surface exists just for this page.
+// i18n is a plain client-side dictionary (EN/ES) swapped via one
+// data-i18n attribute pass - no server-rendered locale, no build step,
+// same "keep it one file" constraint as everything else here.
 export const DASHBOARD_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -56,22 +59,47 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     padding: 7px 10px;
     font-size: 13px;
   }
-  input[type="text"] { min-width: 240px; }
+  input[type="text"] { min-width: 220px; }
   button {
     cursor: pointer;
     background: var(--accent-dim);
     border-color: var(--accent);
   }
   button:hover { background: var(--accent); color: #0f1115; }
+  button.ghost { background: transparent; }
+  button.ghost:hover { background: var(--panel-2); color: var(--text); }
   .status-pill {
     font-size: 11px;
     padding: 4px 10px;
     border-radius: 999px;
   }
-  #healthPill { margin-left: auto; }
+  #headerRight { margin-left: auto; display: flex; align-items: center; gap: 10px; }
   .health-ok { background: rgba(95,214,138,0.15); color: var(--ok); border: 1px solid var(--ok); }
   .health-bad { background: rgba(242,139,108,0.15); color: var(--debt); border: 1px solid var(--debt); }
+  nav.tabs {
+    display: flex;
+    gap: 4px;
+    padding: 10px 20px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  nav.tabs button {
+    background: transparent;
+    border: none;
+    border-radius: 6px 6px 0 0;
+    padding: 8px 16px;
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+  nav.tabs button.active {
+    color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-bottom-color: var(--panel);
+    margin-bottom: -1px;
+  }
   main { padding: 20px; }
+  .view { display: none; }
+  .view.active { display: block; }
   #board {
     display: flex;
     gap: 16px;
@@ -112,28 +140,37 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
   }
   .card .title { font-size: 13px; margin-top: 4px; }
   .empty { color: var(--text-dim); font-size: 13px; padding: 8px 2px; }
-  #searchResults {
-    margin-top: 16px;
-    display: none;
-  }
+  #searchResults { margin-top: 16px; display: none; }
   #searchResults.visible { display: block; }
-  .result {
+  .result, .timeline-row, .audit-row {
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 10px 14px;
     margin-bottom: 8px;
-    cursor: pointer;
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 12px;
   }
-  .result:hover { border-color: var(--accent); }
-  .result .note { font-size: 13px; flex: 1; }
-  .result .meta { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+  .result, .timeline-row { cursor: pointer; }
+  .result:hover, .timeline-row:hover { border-color: var(--accent); }
+  .result .note, .timeline-row .note { font-size: 13px; flex: 1; }
+  .result .meta, .timeline-row .meta, .audit-row .meta { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
   .kind-decision { color: var(--ok); }
   .kind-debt { color: var(--debt); }
+  .audit-row .left { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  .audit-badge {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+  }
+  .action-created { color: var(--ok); border-color: var(--ok); }
+  .action-updated { color: var(--warn); border-color: var(--warn); }
+  .action-deleted { color: var(--debt); border-color: var(--debt); }
   #overlay {
     display: none;
     position: fixed;
@@ -172,21 +209,44 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
   }
   #detail .note .when { color: var(--text-dim); font-size: 11px; margin-top: 3px; }
   #closeDetail { float: right; }
-  .status-select { width: 140px; margin-top: 10px; }
 </style>
 </head>
 <body>
   <header>
     <h1>Packet<span>Forge</span></h1>
     <select id="projectSelect"></select>
-    <input type="text" id="searchInput" placeholder="Semantic search (decisions & debt)..." />
-    <button id="searchBtn">Search</button>
-    <button id="clearSearchBtn" style="display:none">Clear</button>
-    <span id="healthPill" class="status-pill">checking...</span>
+    <input type="text" id="searchInput" data-i18n-placeholder="searchPlaceholder" />
+    <button id="searchBtn" data-i18n="searchBtn"></button>
+    <button id="clearSearchBtn" class="ghost" style="display:none" data-i18n="clearBtn"></button>
+    <div id="headerRight">
+      <select id="langSelect">
+        <option value="en">English</option>
+        <option value="es">Español</option>
+      </select>
+      <span id="healthPill" class="status-pill"></span>
+    </div>
   </header>
+
+  <nav class="tabs">
+    <button id="tabBoardBtn" class="active" data-i18n="tabBoard"></button>
+    <button id="tabTimelineBtn" data-i18n="tabTimeline"></button>
+    <button id="tabAuditBtn" data-i18n="tabAuditLog"></button>
+  </nav>
+
   <main>
     <div id="searchResults"></div>
-    <div id="board"></div>
+
+    <div id="boardView" class="view active">
+      <div id="board"></div>
+    </div>
+
+    <div id="timelineView" class="view">
+      <div id="timelineList"></div>
+    </div>
+
+    <div id="auditView" class="view">
+      <div id="auditList"></div>
+    </div>
   </main>
 
   <div id="overlay">
@@ -194,8 +254,72 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
   </div>
 
 <script>
+const I18N = {
+  en: {
+    searchPlaceholder: 'Semantic search (decisions & debt)...',
+    searchBtn: 'Search',
+    clearBtn: 'Clear',
+    tabBoard: 'Board',
+    tabTimeline: 'Timeline',
+    tabAuditLog: 'Audit Log',
+    allProjects: 'All projects',
+    healthy: 'healthy',
+    degraded: 'degraded',
+    unreachable: 'unreachable',
+    noTasks: 'No tasks yet.',
+    noTasksInProject: 'No tasks yet in this project.',
+    close: 'Close',
+    decisions: 'Decisions',
+    debt: 'Debt',
+    noneRecorded: 'None recorded.',
+    needsApiKey: 'Semantic search needs OPENAI_API_KEY configured on the server.',
+    searchFailed: 'Search failed.',
+    noMatches: 'No matches.',
+    match: 'match',
+    noTimeline: 'Nothing recorded yet.',
+    noAuditEntries: 'No activity recorded yet.',
+    project: 'project',
+    status: 'status',
+  },
+  es: {
+    searchPlaceholder: 'Búsqueda semántica (decisiones y deuda)...',
+    searchBtn: 'Buscar',
+    clearBtn: 'Limpiar',
+    tabBoard: 'Tablero',
+    tabTimeline: 'Cronología',
+    tabAuditLog: 'Registro',
+    allProjects: 'Todos los proyectos',
+    healthy: 'saludable',
+    degraded: 'degradado',
+    unreachable: 'inalcanzable',
+    noTasks: 'Todavía no hay tareas.',
+    noTasksInProject: 'Todavía no hay tareas en este proyecto.',
+    close: 'Cerrar',
+    decisions: 'Decisiones',
+    debt: 'Deuda',
+    noneRecorded: 'Nada registrado.',
+    needsApiKey: 'La búsqueda semántica necesita OPENAI_API_KEY configurada en el servidor.',
+    searchFailed: 'La búsqueda falló.',
+    noMatches: 'Sin resultados.',
+    match: 'coincidencia',
+    noTimeline: 'Todavía no hay nada registrado.',
+    noAuditEntries: 'Todavía no hay actividad registrada.',
+    project: 'proyecto',
+    status: 'estado',
+  },
+};
+
+let lang = localStorage.getItem('pf-lang') || 'en';
+function t(key) { return (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key; }
+
+function applyStaticTranslations() {
+  document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.getAttribute('data-i18n')); });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => { el.placeholder = t(el.getAttribute('data-i18n-placeholder')); });
+}
+
 const API = '';
 let currentProject = '';
+let activeTab = 'board';
 
 async function fetchJson(path) {
   const res = await fetch(API + path);
@@ -207,10 +331,10 @@ async function loadHealth() {
   const pill = document.getElementById('healthPill');
   try {
     const h = await fetchJson('/health');
-    pill.textContent = h.status === 'ok' ? 'healthy' : 'degraded';
+    pill.textContent = h.status === 'ok' ? t('healthy') : t('degraded');
     pill.className = 'status-pill ' + (h.status === 'ok' ? 'health-ok' : 'health-bad');
   } catch {
-    pill.textContent = 'unreachable';
+    pill.textContent = t('unreachable');
     pill.className = 'status-pill health-bad';
   }
 }
@@ -218,9 +342,10 @@ async function loadHealth() {
 async function loadProjects() {
   const projects = await fetchJson('/projects');
   const select = document.getElementById('projectSelect');
-  select.innerHTML = '<option value="">All projects</option>' +
+  const previous = select.value;
+  select.innerHTML = '<option value="">' + t('allProjects') + '</option>' +
     projects.map(p => \`<option value="\${p.id}">\${p.name}</option>\`).join('');
-  select.value = currentProject;
+  select.value = previous || currentProject;
 }
 
 function groupByStatus(tasks) {
@@ -239,21 +364,72 @@ async function loadBoard() {
   const statuses = Object.keys(groups).sort();
 
   if (statuses.length === 0) {
-    board.innerHTML = '<div class="empty">No tasks yet' + (currentProject ? ' in this project.' : '.') + '</div>';
+    board.innerHTML = '<div class="empty">' + (currentProject ? t('noTasksInProject') : t('noTasks')) + '</div>';
     return;
   }
 
   board.innerHTML = statuses.map(status => \`
     <div class="column">
       <h2>\${status} <span>\${groups[status].length}</span></h2>
-      \${groups[status].map(t => \`
-        <div class="card" onclick="openTask('\${t.id}')">
-          <div class="id">\${t.id}</div>
-          <div class="title">\${t.title}</div>
+      \${groups[status].map(tk => \`
+        <div class="card" onclick="openTask('\${tk.id}')">
+          <div class="id">\${tk.id}</div>
+          <div class="title">\${tk.title}</div>
         </div>
       \`).join('')}
     </div>
   \`).join('');
+}
+
+async function loadTimeline() {
+  const qs = currentProject ? '?projectId=' + encodeURIComponent(currentProject) : '';
+  const entries = await fetchJson('/graph/timeline' + qs);
+  const list = document.getElementById('timelineList');
+  list.innerHTML = entries.length === 0
+    ? '<div class="empty">' + t('noTimeline') + '</div>'
+    : entries.map(e => \`
+        <div class="timeline-row" onclick="openTask('\${e.task.id}')">
+          <div>
+            <span class="kind-\${e.kind}">[\${e.kind}]</span>
+            <span class="note">\${e.note}</span>
+          </div>
+          <div class="meta">\${e.task.id} · \${new Date(e.occurredAt).toLocaleString()}</div>
+        </div>
+      \`).join('');
+}
+
+async function loadAuditLog() {
+  const qs = currentProject ? '?projectId=' + encodeURIComponent(currentProject) : '';
+  const entries = await fetchJson('/audit-log' + qs);
+  const list = document.getElementById('auditList');
+  list.innerHTML = entries.length === 0
+    ? '<div class="empty">' + t('noAuditEntries') + '</div>'
+    : entries.map(e => \`
+        <div class="audit-row">
+          <div class="left">
+            <span class="audit-badge action-\${e.action}">\${e.action}</span>
+            <span>\${e.entityType} <strong>\${e.entityId}</strong></span>
+          </div>
+          <div class="meta">\${e.projectId ? e.projectId + ' · ' : ''}\${new Date(e.occurredAt).toLocaleString()}</div>
+        </div>
+      \`).join('');
+}
+
+function refreshActiveTab() {
+  if (activeTab === 'board') return loadBoard();
+  if (activeTab === 'timeline') return loadTimeline();
+  return loadAuditLog();
+}
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.getElementById('tabBoardBtn').classList.toggle('active', tab === 'board');
+  document.getElementById('tabTimelineBtn').classList.toggle('active', tab === 'timeline');
+  document.getElementById('tabAuditBtn').classList.toggle('active', tab === 'audit');
+  document.getElementById('boardView').classList.toggle('active', tab === 'board');
+  document.getElementById('timelineView').classList.toggle('active', tab === 'timeline');
+  document.getElementById('auditView').classList.toggle('active', tab === 'audit');
+  refreshActiveTab();
 }
 
 async function openTask(id) {
@@ -261,18 +437,18 @@ async function openTask(id) {
   const overlay = document.getElementById('overlay');
   const detail = document.getElementById('detail');
 
-  const renderNotes = (notes, emptyLabel) => notes.length === 0
-    ? '<div class="empty">' + emptyLabel + '</div>'
+  const renderNotes = (notes) => notes.length === 0
+    ? '<div class="empty">' + t('noneRecorded') + '</div>'
     : notes.map(n => \`<div class="note">\${n.note}<div class="when">\${new Date(n.loggedAt).toLocaleString()}</div></div>\`).join('');
 
   detail.innerHTML = \`
-    <button id="closeDetail" onclick="closeDetail()">Close</button>
+    <button id="closeDetail" onclick="closeDetail()">\${t('close')}</button>
     <h2>\${task.title}</h2>
-    <div class="meta">\${task.id} · project: \${task.projectId} · status: \${task.status}</div>
-    <h3>Decisions</h3>
-    \${renderNotes(task.decisions, 'None recorded.')}
-    <h3>Debt</h3>
-    \${renderNotes(task.debt, 'None recorded.')}
+    <div class="meta">\${task.id} · \${t('project')}: \${task.projectId} · \${t('status')}: \${task.status}</div>
+    <h3>\${t('decisions')}</h3>
+    \${renderNotes(task.decisions)}
+    <h3>\${t('debt')}</h3>
+    \${renderNotes(task.debt)}
   \`;
   overlay.classList.add('visible');
 }
@@ -289,18 +465,18 @@ async function runSearch() {
   try {
     const results = await fetchJson('/graph/search' + qs);
     resultsEl.innerHTML = results.length === 0
-      ? '<div class="empty">No matches.</div>'
+      ? '<div class="empty">' + t('noMatches') + '</div>'
       : results.map(r => \`
           <div class="result" onclick="openTask('\${r.task.id}')">
             <div>
               <span class="kind-\${r.match.kind}">[\${r.match.kind}]</span>
               <span class="note">\${r.match.note}</span>
             </div>
-            <div class="meta">\${r.task.id} · \${(r.match.similarity * 100).toFixed(0)}% match</div>
+            <div class="meta">\${r.task.id} · \${(r.match.similarity * 100).toFixed(0)}% \${t('match')}</div>
           </div>
         \`).join('');
   } catch (e) {
-    resultsEl.innerHTML = '<div class="empty">' + (e.message.includes('503') ? 'Semantic search needs OPENAI_API_KEY configured on the server.' : 'Search failed.') + '</div>';
+    resultsEl.innerHTML = '<div class="empty">' + (e.message.includes('503') ? t('needsApiKey') : t('searchFailed')) + '</div>';
   }
   resultsEl.classList.add('visible');
   document.getElementById('clearSearchBtn').style.display = 'inline-block';
@@ -314,13 +490,26 @@ function clearSearch() {
 
 document.getElementById('projectSelect').addEventListener('change', (e) => {
   currentProject = e.target.value;
-  loadBoard();
+  refreshActiveTab();
+});
+document.getElementById('langSelect').addEventListener('change', (e) => {
+  lang = e.target.value;
+  try { localStorage.setItem('pf-lang', lang); } catch {}
+  applyStaticTranslations();
+  loadHealth();
+  loadProjects();
+  refreshActiveTab();
 });
 document.getElementById('searchBtn').addEventListener('click', runSearch);
 document.getElementById('searchInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') runSearch(); });
 document.getElementById('clearSearchBtn').addEventListener('click', clearSearch);
 document.getElementById('overlay').addEventListener('click', (e) => { if (e.target.id === 'overlay') closeDetail(); });
+document.getElementById('tabBoardBtn').addEventListener('click', () => switchTab('board'));
+document.getElementById('tabTimelineBtn').addEventListener('click', () => switchTab('timeline'));
+document.getElementById('tabAuditBtn').addEventListener('click', () => switchTab('audit'));
 
+document.getElementById('langSelect').value = lang;
+applyStaticTranslations();
 loadHealth();
 loadProjects().then(loadBoard);
 setInterval(loadHealth, 15000);
