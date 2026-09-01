@@ -28,8 +28,18 @@ export class SearchController {
     required: false,
     description: `Max results, default ${DEFAULT_SEARCH_LIMIT}, capped at 50`,
   })
+  @ApiQuery({
+    name: 'projectId',
+    required: false,
+    description:
+      'Scope results to one project - omit to search across every project.',
+  })
   @ApiOkResponse({ type: [SearchResultDto] })
-  search(@Query('q') q?: string, @Query('limit') limit?: string) {
+  search(
+    @Query('q') q?: string,
+    @Query('limit') limit?: string,
+    @Query('projectId') projectId?: string,
+  ) {
     if (!q || q.trim() === '') {
       throw new BadRequestException('query param "q" is required');
     }
@@ -40,6 +50,6 @@ export class SearchController {
       throw new BadRequestException('query param "limit" must be a number');
     }
 
-    return this.searchService.search(q, parsedLimit);
+    return this.searchService.search(q, parsedLimit, projectId);
   }
 }

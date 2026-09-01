@@ -4,6 +4,9 @@ export class SearchResultTaskDto {
   @ApiProperty({ example: 'CARD-MODEL' })
   id!: string;
 
+  @ApiProperty({ example: 'default' })
+  projectId!: string;
+
   @ApiProperty({ example: 'Card domain model' })
   title!: string;
 

@@ -3,7 +3,7 @@ import {
   Injectable,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { asc, cosineDistance, eq, isNotNull, sql } from 'drizzle-orm';
+import { and, asc, cosineDistance, eq, isNotNull, sql } from 'drizzle-orm';
 import { unionAll } from 'drizzle-orm/pg-core';
 import { DRIZZLE, type DrizzleDb } from '../database/database.module';
 import { debt, decisions, tasks } from '../database/schema';
@@ -14,7 +14,7 @@ export const DEFAULT_SEARCH_LIMIT = 10;
 export const MAX_SEARCH_LIMIT = 50;
 
 export interface SearchResult {
-  task: { id: string; title: string; status: string };
+  task: { id: string; projectId: string; title: string; status: string };
   match: { kind: 'decision' | 'debt'; note: string; similarity: number };
 }
 
@@ -29,6 +29,7 @@ export class SearchService {
   async search(
     query: string,
     limit = DEFAULT_SEARCH_LIMIT,
+    projectId?: string,
   ): Promise<SearchResult[]> {
     const boundedLimit = Math.min(Math.max(limit, 1), MAX_SEARCH_LIMIT);
 
@@ -48,6 +49,7 @@ export class SearchService {
     const decisionMatches = this.db
       .select({
         taskId: tasks.id,
+        taskProjectId: tasks.projectId,
         taskTitle: tasks.title,
         taskStatus: tasks.status,
         kind: sql<'decision' | 'debt'>`'decision'`.as('kind'),
@@ -59,11 +61,16 @@ export class SearchService {
       })
       .from(decisions)
       .innerJoin(tasks, eq(decisions.taskId, tasks.id))
-      .where(isNotNull(decisions.embedding));
+      .where(
+        projectId
+          ? and(isNotNull(decisions.embedding), eq(tasks.projectId, projectId))
+          : isNotNull(decisions.embedding),
+      );
 
     const debtMatches = this.db
       .select({
         taskId: tasks.id,
+        taskProjectId: tasks.projectId,
         taskTitle: tasks.title,
         taskStatus: tasks.status,
         kind: sql<'decision' | 'debt'>`'debt'`.as('kind'),
@@ -75,14 +82,23 @@ export class SearchService {
       })
       .from(debt)
       .innerJoin(tasks, eq(debt.taskId, tasks.id))
-      .where(isNotNull(debt.embedding));
+      .where(
+        projectId
+          ? and(isNotNull(debt.embedding), eq(tasks.projectId, projectId))
+          : isNotNull(debt.embedding),
+      );
 
     const rows = await unionAll(decisionMatches, debtMatches)
       .orderBy(asc(sql.identifier('distance')))
       .limit(boundedLimit);
 
     return rows.map((row) => ({
-      task: { id: row.taskId, title: row.taskTitle, status: row.taskStatus },
+      task: {
+        id: row.taskId,
+        projectId: row.taskProjectId,
+        title: row.taskTitle,
+        status: row.taskStatus,
+      },
       match: {
         kind: row.kind,
         note: row.note,

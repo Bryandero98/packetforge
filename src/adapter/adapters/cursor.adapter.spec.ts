@@ -6,7 +6,12 @@ describe('CursorAdapter', () => {
 
   it('renders a task header, status, and every decision/debt note as a bullet', () => {
     const packet: Packet = {
-      task: { id: 'CARD-MODEL', title: 'Card domain model', status: 'done' },
+      task: {
+        id: 'CARD-MODEL',
+        projectId: 'default',
+        title: 'Card domain model',
+        status: 'done',
+      },
       decisions: [
         {
           note: 'Plain object, no behavior yet',
@@ -21,6 +26,7 @@ describe('CursorAdapter', () => {
     const output = adapter.format(packet);
 
     expect(output).toContain('# Task: CARD-MODEL — Card domain model');
+    expect(output).toContain('Project: default');
     expect(output).toContain('Status: done');
     expect(output).toContain('## Decisions');
     expect(output).toContain(
@@ -34,7 +40,12 @@ describe('CursorAdapter', () => {
 
   it('renders an explicit "None recorded." line instead of an empty section', () => {
     const packet: Packet = {
-      task: { id: 'CARD-MODEL', title: 'Card domain model', status: 'pending' },
+      task: {
+        id: 'CARD-MODEL',
+        projectId: 'default',
+        title: 'Card domain model',
+        status: 'pending',
+      },
       decisions: [],
       debt: [],
     };

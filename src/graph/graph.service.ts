@@ -8,14 +8,18 @@ import { debt, decisions, tasks } from '../database/schema';
 export class GraphService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDb) {}
 
-  async listTasks() {
-    return this.db.select().from(tasks);
+  async listTasks(projectId?: string) {
+    const query = this.db.select().from(tasks);
+    return projectId ? query.where(eq(tasks.projectId, projectId)) : query;
   }
 
-  async createTask(id: string, title: string) {
+  // projectId is optional - omitting it lets the column's own DB-level
+  // default ('default') apply, so a caller that predates project scoping
+  // (an older MCP client, a script) keeps working exactly as before.
+  async createTask(id: string, title: string, projectId?: string) {
     const [task] = await this.db
       .insert(tasks)
-      .values({ id, title })
+      .values({ id, title, ...(projectId ? { projectId } : {}) })
       .returning();
     return task;
   }
@@ -44,7 +48,12 @@ export class GraphService {
   async getPacket(id: string): Promise<Packet> {
     const detail = await this.getTaskDetail(id);
     return {
-      task: { id: detail.id, title: detail.title, status: detail.status },
+      task: {
+        id: detail.id,
+        projectId: detail.projectId,
+        title: detail.title,
+        status: detail.status,
+      },
       decisions: detail.decisions.map((entry) => ({
         note: entry.note,
         loggedAt: entry.loggedAt.toISOString(),

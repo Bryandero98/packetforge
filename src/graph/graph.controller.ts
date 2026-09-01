@@ -41,10 +41,17 @@ export class GraphController {
   ) {}
 
   @Get()
-  @ApiOperation({ summary: 'List every task' })
+  @ApiOperation({
+    summary: 'List every task, optionally scoped to one project',
+  })
+  @ApiQuery({
+    name: 'projectId',
+    required: false,
+    description: 'Filter to one project - omit to list across every project.',
+  })
   @ApiOkResponse({ type: [TaskDto] })
-  listTasks() {
-    return this.graphService.listTasks();
+  listTasks(@Query('projectId') projectId?: string) {
+    return this.graphService.listTasks(projectId);
   }
 
   @Post()
@@ -53,7 +60,7 @@ export class GraphController {
   })
   @ApiCreatedResponse({ type: TaskDto })
   createTask(@Body() body: CreateTaskDto) {
-    return this.graphService.createTask(body.id, body.title);
+    return this.graphService.createTask(body.id, body.title, body.projectId);
   }
 
   @Get(':id')

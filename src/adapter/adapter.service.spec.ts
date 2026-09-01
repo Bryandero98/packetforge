@@ -4,7 +4,12 @@ import type { Packet } from './adapter.interface';
 import { AdapterService } from './adapter.service';
 
 const SAMPLE_PACKET: Packet = {
-  task: { id: 'TASK-1', title: 'Example task', status: 'pending' },
+  task: {
+    id: 'TASK-1',
+    projectId: 'default',
+    title: 'Example task',
+    status: 'pending',
+  },
   decisions: [],
   debt: [],
 };

@@ -18,6 +18,10 @@ describeIfDb('GraphService', () => {
     await pool.query(
       'TRUNCATE tasks, decisions, debt RESTART IDENTITY CASCADE',
     );
+    // Tasks cascade-delete on their project, so this must run after the
+    // tasks truncate above, not before. "default" is never removed - see
+    // projects.service.spec.ts's identical rationale.
+    await pool.query(`DELETE FROM projects WHERE id != 'default'`);
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -102,6 +106,7 @@ describeIfDb('GraphService', () => {
 
     expect(packet.task).toEqual({
       id: 'CARD-MODEL',
+      projectId: 'default',
       title: 'Card domain model',
       status: 'pending',
     });
@@ -118,5 +123,51 @@ describeIfDb('GraphService', () => {
     await expect(service.getPacket('NO-SUCH-TASK')).rejects.toThrow(
       'no such task: NO-SUCH-TASK',
     );
+  });
+
+  it('createTask with no projectId falls back to the "default" project', async () => {
+    const task = await service.createTask('CARD-MODEL', 'Card domain model');
+
+    expect(task.projectId).toBe('default');
+  });
+
+  it('createTask scopes a task to an explicit projectId', async () => {
+    await pool.query(
+      `INSERT INTO projects (id, name) VALUES ('onramp', 'onramp')`,
+    );
+
+    const task = await service.createTask(
+      'SWEEP',
+      'Installation sweep',
+      'onramp',
+    );
+
+    expect(task.projectId).toBe('onramp');
+  });
+
+  it('listTasks(projectId) only returns tasks scoped to that project', async () => {
+    await pool.query(
+      `INSERT INTO projects (id, name) VALUES ('onramp', 'onramp')`,
+    );
+    await service.createTask('CARD-MODEL', 'Card domain model');
+    await service.createTask('SWEEP', 'Installation sweep', 'onramp');
+
+    const defaultTasks = await service.listTasks('default');
+    const onrampTasks = await service.listTasks('onramp');
+
+    expect(defaultTasks.map((t) => t.id)).toEqual(['CARD-MODEL']);
+    expect(onrampTasks.map((t) => t.id)).toEqual(['SWEEP']);
+  });
+
+  it('listTasks() with no projectId returns tasks across every project', async () => {
+    await pool.query(
+      `INSERT INTO projects (id, name) VALUES ('onramp', 'onramp')`,
+    );
+    await service.createTask('CARD-MODEL', 'Card domain model');
+    await service.createTask('SWEEP', 'Installation sweep', 'onramp');
+
+    const all = await service.listTasks();
+
+    expect(all.map((t) => t.id).sort()).toEqual(['CARD-MODEL', 'SWEEP']);
   });
 });

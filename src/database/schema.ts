@@ -12,8 +12,33 @@ import {
 // width and the provider that fills it can never silently drift apart.
 export const EMBEDDING_DIMENSIONS = 1536;
 
+/**
+ * Root of workspace scoping - one PacketForge deployment can now serve
+ * multiple repos/projects instead of needing one deployment each.
+ * Decisions and debt don't get their own project_id column: they're
+ * scoped transitively through task_id -> tasks.project_id, so scoping a
+ * query to a project only ever means joining on tasks, never keeping two
+ * columns in sync.
+ */
+export const projects = pgTable('projects', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const tasks = pgTable('tasks', {
   id: text('id').primaryKey(),
+  // DB-level default 'default' (see migration 0003) so every row that
+  // existed before this column did is still valid, and so a caller that
+  // doesn't know about projects yet (an older MCP client, a script) keeps
+  // working exactly as before - "default" is a real project, seeded by
+  // the same migration, not a magic string the app has to special-case.
+  projectId: text('project_id')
+    .notNull()
+    .default('default')
+    .references(() => projects.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
   status: text('status').notNull().default('pending'),
 });

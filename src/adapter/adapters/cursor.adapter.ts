@@ -19,6 +19,7 @@ export class CursorAdapter implements PacketAdapter {
     const lines = [
       `# Task: ${packet.task.id} — ${packet.task.title}`,
       '',
+      `Project: ${packet.task.projectId}`,
       `Status: ${packet.task.status}`,
       '',
       '## Decisions',

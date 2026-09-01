@@ -3,11 +3,18 @@ import { GraphModule } from '../graph/graph.module';
 import { DecisionModule } from '../decision/decision.module';
 import { DebtModule } from '../debt/debt.module';
 import { SearchModule } from '../search/search.module';
+import { ProjectsModule } from '../projects/projects.module';
 import { McpController } from './mcp.controller';
 import { McpServerFactory } from './mcp-server.factory';
 
 @Module({
-  imports: [GraphModule, DecisionModule, DebtModule, SearchModule],
+  imports: [
+    GraphModule,
+    DecisionModule,
+    DebtModule,
+    SearchModule,
+    ProjectsModule,
+  ],
   controllers: [McpController],
   providers: [McpServerFactory],
 })

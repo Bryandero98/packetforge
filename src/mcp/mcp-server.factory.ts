@@ -6,6 +6,7 @@ import { GraphService } from '../graph/graph.service';
 import { DecisionService } from '../decision/decision.service';
 import { DebtService } from '../debt/debt.service';
 import { SearchService } from '../search/search.service';
+import { ProjectsService } from '../projects/projects.service';
 
 function textResult(value: unknown): CallToolResult {
   return { content: [{ type: 'text', text: JSON.stringify(value, null, 2) }] };
@@ -33,6 +34,7 @@ export class McpServerFactory {
     private readonly decisionService: DecisionService,
     private readonly debtService: DebtService,
     private readonly searchService: SearchService,
+    private readonly projectsService: ProjectsService,
   ) {}
 
   create(): McpServer {
@@ -40,10 +42,21 @@ export class McpServerFactory {
 
     server.registerTool(
       'list_tasks',
-      { description: 'List every task in the build graph.' },
-      async () => {
+      {
+        description:
+          'List tasks in the build graph, optionally scoped to one project.',
+        inputSchema: {
+          projectId: z
+            .string()
+            .optional()
+            .describe(
+              'Filter to one project - omit to list across every project',
+            ),
+        },
+      },
+      async ({ projectId }) => {
         try {
-          return textResult(await this.graphService.listTasks());
+          return textResult(await this.graphService.listTasks(projectId));
         } catch (error) {
           return errorResult(error);
         }
@@ -58,11 +71,53 @@ export class McpServerFactory {
         inputSchema: {
           id: z.string().describe('Unique task identifier'),
           title: z.string().describe('Human-readable task title'),
+          projectId: z
+            .string()
+            .optional()
+            .describe(
+              'Which project this task belongs to - omit to use the "default" project',
+            ),
         },
       },
-      async ({ id, title }) => {
+      async ({ id, title, projectId }) => {
         try {
-          return textResult(await this.graphService.createTask(id, title));
+          return textResult(
+            await this.graphService.createTask(id, title, projectId),
+          );
+        } catch (error) {
+          return errorResult(error);
+        }
+      },
+    );
+
+    server.registerTool(
+      'list_projects',
+      {
+        description: 'List every project - a "default" project always exists.',
+      },
+      async () => {
+        try {
+          return textResult(await this.projectsService.listProjects());
+        } catch (error) {
+          return errorResult(error);
+        }
+      },
+    );
+
+    server.registerTool(
+      'create_project',
+      {
+        description:
+          'Create a project - the workspace tasks are scoped under, so ' +
+          'one PacketForge deployment can serve several repos/projects.',
+        inputSchema: {
+          id: z.string().describe('Unique project identifier'),
+          name: z.string().describe('Human-readable project name'),
+        },
+      },
+      async ({ id, name }) => {
+        try {
+          return textResult(await this.projectsService.createProject(id, name));
         } catch (error) {
           return errorResult(error);
         }
@@ -162,11 +217,19 @@ export class McpServerFactory {
             .max(50)
             .optional()
             .describe('Max results, default 10'),
+          projectId: z
+            .string()
+            .optional()
+            .describe(
+              'Scope results to one project - omit to search across every project',
+            ),
         },
       },
-      async ({ query, limit }) => {
+      async ({ query, limit, projectId }) => {
         try {
-          return textResult(await this.searchService.search(query, limit));
+          return textResult(
+            await this.searchService.search(query, limit, projectId),
+          );
         } catch (error) {
           return errorResult(error);
         }

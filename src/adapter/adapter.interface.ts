@@ -7,6 +7,7 @@
 export interface Packet {
   readonly task: {
     readonly id: string;
+    readonly projectId: string;
     readonly title: string;
     readonly status: string;
   };

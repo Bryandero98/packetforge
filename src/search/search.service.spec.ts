@@ -6,7 +6,7 @@ import { EMBEDDING_PROVIDER } from '../embedding/embedding.module';
 import type { EmbeddingProvider } from '../embedding/embedding-provider.interface';
 import { EMBEDDING_DIMENSIONS } from '../database/schema';
 import * as schema from '../database/schema';
-import { SearchService } from './search.service';
+import { DEFAULT_SEARCH_LIMIT, SearchService } from './search.service';
 
 // One-hot vectors along orthogonal axes: cosine distance between two
 // distinct one-hot vectors is always 1 (similarity 0), and a vector against
@@ -53,6 +53,7 @@ describeIfDb('SearchService', () => {
     await pool.query(
       'TRUNCATE tasks, decisions, debt RESTART IDENTITY CASCADE',
     );
+    await pool.query(`DELETE FROM projects WHERE id != 'default'`);
     await pool.query(
       `INSERT INTO tasks (id, title) VALUES ('STORAGE', 'Storage backend'), ('CARD-MODEL', 'Card domain model'), ('AUTH', 'Auth middleware')`,
     );
@@ -111,6 +112,38 @@ describeIfDb('SearchService', () => {
     for (const r of rest) {
       expect(r.match.similarity).toBeCloseTo(0, 5);
     }
+  });
+
+  it('scopes results to one project when projectId is passed', async () => {
+    await pool.query(
+      `INSERT INTO projects (id, name) VALUES ('onramp', 'onramp')`,
+    );
+    await pool.query(
+      `INSERT INTO tasks (id, project_id, title) VALUES ('SWEEP', 'onramp', 'Installation sweep')`,
+    );
+    await pool.query(
+      `INSERT INTO decisions (task_id, note, embedding) VALUES ('SWEEP', 'query: storage backend', '[${Array<number>(
+        EMBEDDING_DIMENSIONS,
+      )
+        .fill(0)
+        .map((_, i) => (i === 0 ? 1 : 0))
+        .join(',')}]')`,
+    );
+
+    const defaultOnly = await service.search(
+      'query: storage backend',
+      DEFAULT_SEARCH_LIMIT,
+      'default',
+    );
+    const onrampOnly = await service.search(
+      'query: storage backend',
+      DEFAULT_SEARCH_LIMIT,
+      'onramp',
+    );
+
+    expect(defaultOnly.map((r) => r.task.id)).not.toContain('SWEEP');
+    expect(onrampOnly.map((r) => r.task.id)).toEqual(['SWEEP']);
+    expect(onrampOnly[0].task.projectId).toBe('onramp');
   });
 
   it('excludes notes with no embedding from results', async () => {
