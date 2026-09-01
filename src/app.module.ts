@@ -12,6 +12,7 @@ import { McpModule } from './mcp/mcp.module';
 import { HealthModule } from './health/health.module';
 import { ExportModule } from './export/export.module';
 import { ProjectsModule } from './projects/projects.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { RequestLoggerMiddleware } from './logging/request-logger.middleware';
 
 @Module({
@@ -27,6 +28,7 @@ import { RequestLoggerMiddleware } from './logging/request-logger.middleware';
     McpModule,
     HealthModule,
     ExportModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],
