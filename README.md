@@ -75,26 +75,50 @@ curl 'localhost:3000/graph/search?q=data+model+for+cards&limit=5'
 
 | Method | Path | Does |
 |---|---|---|
-| `GET` | `/graph/tasks` | List every task |
-| `POST` | `/graph/tasks` | Create a task (`{ id, title }`) |
+| `GET` | `/graph/tasks?projectId=` | List tasks, optionally scoped to one project |
+| `POST` | `/graph/tasks` | Create a task (`{ id, title, projectId? }` - `projectId` defaults to `"default"`) |
+| `GET` | `/graph/tasks/:id` | Read one task with every decision and debt note already attached |
+| `PATCH` | `/graph/tasks/:id` | Update a task's status (`{ status }`) |
+| `DELETE` | `/graph/tasks/:id` | Delete a task - its decisions and debt cascade with it |
+| `GET` | `/graph/tasks/:id/packet?adapter=` | A task's full context, formatted by a registered adapter (default `generic-json`) |
 | `GET` | `/decisions?taskId=` | List decisions, optionally filtered to one task |
 | `POST` | `/decisions` | Record a decision (`{ taskId, note }`) |
 | `GET` | `/debt?taskId=` | List debt, optionally filtered to one task |
 | `POST` | `/debt` | Record debt (`{ taskId, note }`) |
-| `GET` | `/adapters` | List the registered output adapters |
-| `GET` | `/graph/search?q=&limit=` | Semantic search over decisions and debt, ranked by cosine similarity, each result with its parent task inline |
+| `GET` | `/adapters` | List the registered output adapters (`generic-json`, `cursor`) |
+| `GET` | `/graph/search?q=&limit=&projectId=` | Semantic search over decisions and debt, ranked by cosine similarity, each result with its parent task inline |
+| `GET` | `/projects` | List every project - a `"default"` project always exists |
+| `POST` | `/projects` | Create a project (`{ id, name }`) |
+| `GET` | `/health` | Database connectivity + embedding provider config - `503` if the database is unreachable |
+| `GET` | `/export` | The entire graph (every task, decision, debt note, embeddings included) as one JSON document |
+| `GET` | `/dashboard` | A visual Kanban board + task detail + search UI - see below |
+| `POST` | `/mcp` | [Model Context Protocol](https://modelcontextprotocol.io) server - every operation above, minus `/adapters`, as an MCP tool |
+
+## Dashboard
+
+`GET /dashboard` is a single self-contained page (no build step, no framework, no external dependencies) - a Kanban board grouped by whatever status values actually exist, a click-through detail panel for each task's decisions and debt, a project filter, and a semantic search box. It's the one part of PacketForge meant to be opened directly in a browser by a human; everything else in this README is meant for a tool or an agent. Open `http://localhost:3000/dashboard` once the server is running.
+
+## n8n
+
+PacketForge doesn't ship a dedicated n8n node - it doesn't need one yet. n8n's built-in **MCP Client node** connects to any MCP server with just a URL, and `/mcp` above already exposes every write/read operation as an MCP tool, so an n8n workflow can read and write the graph today with zero extra code on either side.
 
 ## Architecture
 
 ```
 src/
   database/   Postgres schema (Drizzle, drizzle-kit-managed migrations)
+  projects/   workspace scoping - one deployment can serve several projects
   graph/      tasks - the nodes the rest of the graph hangs off of
   decision/   why a task was built a certain way
   debt/       what's still wrong with a task
   adapter/    translates a packet into the shape a specific external tool expects
   embedding/  EmbeddingProvider interface + the OpenAI reference implementation
   search/     GET /graph/search - semantic search over decisions and debt
+  mcp/        POST /mcp - the same operations above as Model Context Protocol tools
+  health/     GET /health - database connectivity + embedding provider config
+  export/     GET /export - the entire graph as one JSON document
+  dashboard/  GET /dashboard - the visual Kanban/detail/search UI
+  logging/    structured JSON request logging, one line per request
 scripts/
   backfill-embeddings.ts   embeds any pre-existing note that predates the search feature
 ```
@@ -131,6 +155,13 @@ npm run backfill:embeddings
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Short version: real tests over
 mocked ones, Conventional Commits, and every PR passing CI before review.
+
+## Support this project
+
+PacketForge is free and will stay free. If it's saving your agents from re-deriving context they already lost once, a small tip helps keep it going:
+
+- **Ko-fi:** [ko-fi.com/bryandero98](https://ko-fi.com/bryandero98)
+- **USDT (TRC20):** `TEG4Kk2qXYMQ4mHNd7dPhSPRyT14CGr2or` — double-check the network is set to **TRC20** before sending; a transfer on the wrong network can't be recovered.
 
 ## License
 

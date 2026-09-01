@@ -5,6 +5,7 @@
   "author": "",
   "private": true,
   "license": "MIT",
+  "funding": "https://ko-fi.com/bryandero98",
   "engines": {
     "node": ">=22"
   },
