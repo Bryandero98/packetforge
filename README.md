@@ -111,6 +111,16 @@ PacketForge doesn't ship a dedicated n8n node - it doesn't need one yet. n8n's b
 
 ## Architecture
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/architecture-dark.svg">
+  <img src="docs/architecture-light.svg" alt="Diagram: an AI agent via MCP tools or a REST client both call PacketForge's services, which read and write Postgres with pgvector, optionally embedding notes and queries through Gemini, and format a task's full context through a PacketAdapter on the way back out.">
+</picture>
+
+Two doors, one graph: an AI agent calls MCP tools directly; anything else
+hits the same operations over REST. Recording a decision or debt note is a
+best-effort enrichment, not a requirement - a missing embedding never
+blocks the write.
+
 ```
 src/
   database/   Postgres schema (Drizzle, drizzle-kit-managed migrations)
