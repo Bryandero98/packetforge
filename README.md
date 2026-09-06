@@ -82,6 +82,7 @@ curl 'localhost:3000/graph/search?q=data+model+for+cards&limit=5'
 
 | Method | Path | Does |
 |---|---|---|
+| `GET` | `/` | Redirects to `/dashboard` |
 | `GET` | `/graph/tasks?projectId=` | List tasks, optionally scoped to one project |
 | `POST` | `/graph/tasks` | Create a task (`{ id, title, projectId? }` - `projectId` defaults to `"default"`) |
 | `GET` | `/graph/tasks/:id` | Read one task with every decision and debt note already attached |

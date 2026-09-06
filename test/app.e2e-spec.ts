@@ -21,11 +21,11 @@ describeIfDb('AppController (e2e)', () => {
     await app.init();
   });
 
-  it('/ (GET)', () => {
+  it('/ (GET) redirects to the dashboard', () => {
     return request(app.getHttpServer())
       .get('/')
-      .expect(200)
-      .expect('Hello World!');
+      .expect(302)
+      .expect('Location', '/dashboard');
   });
 
   afterEach(async () => {
