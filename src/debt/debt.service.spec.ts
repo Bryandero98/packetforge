@@ -80,4 +80,37 @@ describeIfDb('DebtService', () => {
       'Second debt',
     ]);
   });
+
+  it('corrects a debt note in place and re-embeds it', async () => {
+    const created = await service.addDebt('TASK-1', 'Original debt note');
+
+    const updated = await service.updateDebt(created.id, 'Corrected debt note');
+
+    expect(updated.note).toBe('Corrected debt note');
+    expect(updated.embedding).toHaveLength(EMBEDDING_DIMENSIONS);
+
+    const found = await service.listDebt('TASK-1');
+    expect(found).toHaveLength(1);
+    expect(found[0].note).toBe('Corrected debt note');
+  });
+
+  it('rejects updating debt that does not exist', async () => {
+    await expect(service.updateDebt(999999, 'anything')).rejects.toThrow(
+      'no such debt: 999999',
+    );
+  });
+
+  it('deletes a single debt note without touching its task', async () => {
+    const created = await service.addDebt('TASK-1', 'Throwaway debt');
+
+    await service.deleteDebt(created.id);
+
+    expect(await service.listDebt('TASK-1')).toEqual([]);
+  });
+
+  it('rejects deleting debt that does not exist', async () => {
+    await expect(service.deleteDebt(999999)).rejects.toThrow(
+      'no such debt: 999999',
+    );
+  });
 });

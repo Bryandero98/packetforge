@@ -166,6 +166,47 @@ export class McpServerFactory {
     );
 
     server.registerTool(
+      'update_decision',
+      {
+        description:
+          'Correct an existing decision note, re-embedding it for search. ' +
+          'Same "conflicts" warning as create_decision, checked against the ' +
+          "note's new text.",
+        inputSchema: {
+          id: z.number().int().describe('The decision id to correct'),
+          note: z.string().describe('The corrected note text'),
+        },
+      },
+      async ({ id, note }) => {
+        try {
+          return textResult(
+            await this.decisionService.updateDecision(id, note),
+          );
+        } catch (error) {
+          return errorResult(error);
+        }
+      },
+    );
+
+    server.registerTool(
+      'delete_decision',
+      {
+        description: 'Delete a single decision note.',
+        inputSchema: {
+          id: z.number().int().describe('The decision id to delete'),
+        },
+      },
+      async ({ id }) => {
+        try {
+          await this.decisionService.deleteDecision(id);
+          return textResult({ deleted: id });
+        } catch (error) {
+          return errorResult(error);
+        }
+      },
+    );
+
+    server.registerTool(
       'list_debt',
       {
         description: 'List debt, optionally filtered to one task.',
@@ -195,6 +236,43 @@ export class McpServerFactory {
       async ({ taskId, note }) => {
         try {
           return textResult(await this.debtService.addDebt(taskId, note));
+        } catch (error) {
+          return errorResult(error);
+        }
+      },
+    );
+
+    server.registerTool(
+      'update_debt',
+      {
+        description:
+          'Correct an existing debt note, re-embedding it for search.',
+        inputSchema: {
+          id: z.number().int().describe('The debt id to correct'),
+          note: z.string().describe('The corrected note text'),
+        },
+      },
+      async ({ id, note }) => {
+        try {
+          return textResult(await this.debtService.updateDebt(id, note));
+        } catch (error) {
+          return errorResult(error);
+        }
+      },
+    );
+
+    server.registerTool(
+      'delete_debt',
+      {
+        description: 'Delete a single debt note.',
+        inputSchema: {
+          id: z.number().int().describe('The debt id to delete'),
+        },
+      },
+      async ({ id }) => {
+        try {
+          await this.debtService.deleteDebt(id);
+          return textResult({ deleted: id });
         } catch (error) {
           return errorResult(error);
         }

@@ -47,4 +47,52 @@ export class DebtService {
     const query = this.db.select().from(debt);
     return taskId ? query.where(eq(debt.taskId, taskId)) : query;
   }
+
+  // Corrects an existing debt note in place - re-embeds it, same rationale
+  // as DecisionService.updateDecision: the old embedding described the old
+  // text, so it goes stale the moment the note itself changes.
+  async updateDebt(id: number, note: string) {
+    const [existing] = await this.db.select().from(debt).where(eq(debt.id, id));
+    if (!existing) {
+      throw new NotFoundException(`no such debt: ${id}`);
+    }
+    const [task] = await this.db
+      .select()
+      .from(tasks)
+      .where(eq(tasks.id, existing.taskId));
+
+    const embedding = await embedSafely(this.embeddingProvider, note);
+    const [entry] = await this.db
+      .update(debt)
+      .set({ note, embedding })
+      .where(eq(debt.id, id))
+      .returning();
+    await this.auditLogService.record(
+      'debt',
+      String(entry.id),
+      'updated',
+      task.projectId,
+    );
+    return entry;
+  }
+
+  async deleteDebt(id: number): Promise<void> {
+    const [entry] = await this.db
+      .delete(debt)
+      .where(eq(debt.id, id))
+      .returning();
+    if (!entry) {
+      throw new NotFoundException(`no such debt: ${id}`);
+    }
+    const [task] = await this.db
+      .select()
+      .from(tasks)
+      .where(eq(tasks.id, entry.taskId));
+    await this.auditLogService.record(
+      'debt',
+      String(entry.id),
+      'deleted',
+      task?.projectId,
+    );
+  }
 }

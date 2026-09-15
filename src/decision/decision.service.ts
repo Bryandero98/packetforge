@@ -72,6 +72,64 @@ export class DecisionService {
     return taskId ? query.where(eq(decisions.taskId, taskId)) : query;
   }
 
+  // Corrects an existing decision's note in place - re-embeds it (the old
+  // embedding described the old text, so it's stale the moment the note
+  // changes) and re-runs conflict detection the same way addDecision does,
+  // excluding the row being updated from its own candidate set.
+  async updateDecision(id: number, note: string) {
+    const [existing] = await this.db
+      .select()
+      .from(decisions)
+      .where(eq(decisions.id, id));
+    if (!existing) {
+      throw new NotFoundException(`no such decision: ${id}`);
+    }
+    const [task] = await this.db
+      .select()
+      .from(tasks)
+      .where(eq(tasks.id, existing.taskId));
+
+    const embedding = await embedSafely(this.embeddingProvider, note);
+    const conflicts = embedding
+      ? (await this.findConflicts(existing.taskId, embedding)).filter(
+          (conflict) => conflict.id !== id,
+        )
+      : [];
+
+    const [decision] = await this.db
+      .update(decisions)
+      .set({ note, embedding })
+      .where(eq(decisions.id, id))
+      .returning();
+    await this.auditLogService.record(
+      'decision',
+      String(decision.id),
+      'updated',
+      task.projectId,
+    );
+    return { ...decision, conflicts };
+  }
+
+  async deleteDecision(id: number): Promise<void> {
+    const [decision] = await this.db
+      .delete(decisions)
+      .where(eq(decisions.id, id))
+      .returning();
+    if (!decision) {
+      throw new NotFoundException(`no such decision: ${id}`);
+    }
+    const [task] = await this.db
+      .select()
+      .from(tasks)
+      .where(eq(tasks.id, decision.taskId));
+    await this.auditLogService.record(
+      'decision',
+      String(decision.id),
+      'deleted',
+      task?.projectId,
+    );
+  }
+
   private async findConflicts(
     taskId: string,
     embedding: number[],

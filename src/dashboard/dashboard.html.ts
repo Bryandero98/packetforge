@@ -207,7 +207,18 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     font-size: 13px;
     margin-bottom: 6px;
   }
-  #detail .note .when { color: var(--text-dim); font-size: 11px; margin-top: 3px; }
+  #detail .note .note-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 5px;
+  }
+  #detail .note .when { color: var(--text-dim); font-size: 11px; }
+  #detail .note .note-actions { display: flex; gap: 6px; }
+  #detail .note .note-actions button {
+    padding: 2px 8px;
+    font-size: 11px;
+  }
   #closeDetail { float: right; }
 </style>
 </head>
@@ -280,6 +291,11 @@ const I18N = {
     noAuditEntries: 'No activity recorded yet.',
     project: 'project',
     status: 'status',
+    edit: 'Edit',
+    delete: 'Delete',
+    editPrompt: 'Edit note:',
+    confirmDelete: 'Delete this note? This cannot be undone.',
+    actionFailed: 'Action failed.',
   },
   es: {
     searchPlaceholder: 'Búsqueda semántica (decisiones y deuda)...',
@@ -306,6 +322,11 @@ const I18N = {
     noAuditEntries: 'Todavía no hay actividad registrada.',
     project: 'proyecto',
     status: 'estado',
+    edit: 'Editar',
+    delete: 'Eliminar',
+    editPrompt: 'Editar nota:',
+    confirmDelete: '¿Eliminar esta nota? No se puede deshacer.',
+    actionFailed: 'La acción falló.',
   },
 };
 
@@ -432,29 +453,75 @@ function switchTab(tab) {
   refreshActiveTab();
 }
 
+let currentTask = null;
+
+const NOTE_ENDPOINT = { decision: '/decisions/', debt: '/debt/' };
+
 async function openTask(id) {
   const task = await fetchJson('/graph/tasks/' + encodeURIComponent(id));
-  const overlay = document.getElementById('overlay');
+  currentTask = task;
+  renderDetail(task);
+  document.getElementById('overlay').classList.add('visible');
+}
+
+function renderDetail(task) {
   const detail = document.getElementById('detail');
 
-  const renderNotes = (notes) => notes.length === 0
+  const renderNotes = (notes, kind) => notes.length === 0
     ? '<div class="empty">' + t('noneRecorded') + '</div>'
-    : notes.map(n => \`<div class="note">\${n.note}<div class="when">\${new Date(n.loggedAt).toLocaleString()}</div></div>\`).join('');
+    : notes.map(n => \`
+        <div class="note">
+          <div class="note-text">\${n.note}</div>
+          <div class="note-footer">
+            <span class="when">\${new Date(n.loggedAt).toLocaleString()}</span>
+            <span class="note-actions">
+              <button class="ghost" onclick="editNote('\${kind}', \${n.id})">\${t('edit')}</button>
+              <button class="ghost" onclick="removeNote('\${kind}', \${n.id})">\${t('delete')}</button>
+            </span>
+          </div>
+        </div>
+      \`).join('');
 
   detail.innerHTML = \`
     <button id="closeDetail" onclick="closeDetail()">\${t('close')}</button>
     <h2>\${task.title}</h2>
     <div class="meta">\${task.id} · \${t('project')}: \${task.projectId} · \${t('status')}: \${task.status}</div>
     <h3>\${t('decisions')}</h3>
-    \${renderNotes(task.decisions)}
+    \${renderNotes(task.decisions, 'decision')}
     <h3>\${t('debt')}</h3>
-    \${renderNotes(task.debt)}
+    \${renderNotes(task.debt, 'debt')}
   \`;
-  overlay.classList.add('visible');
 }
 
 function closeDetail() {
   document.getElementById('overlay').classList.remove('visible');
+  currentTask = null;
+}
+
+async function editNote(kind, id) {
+  const notes = currentTask[kind === 'decision' ? 'decisions' : 'debt'];
+  const note = notes.find(n => n.id === id);
+  if (!note) return;
+  const updated = prompt(t('editPrompt'), note.note);
+  if (updated === null || updated.trim() === '' || updated === note.note) return;
+
+  const res = await fetch(API + NOTE_ENDPOINT[kind] + id, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ note: updated }),
+  });
+  if (!res.ok) { alert(t('actionFailed')); return; }
+  await openTask(currentTask.id);
+  refreshActiveTab();
+}
+
+async function removeNote(kind, id) {
+  if (!confirm(t('confirmDelete'))) return;
+
+  const res = await fetch(API + NOTE_ENDPOINT[kind] + id, { method: 'DELETE' });
+  if (!res.ok) { alert(t('actionFailed')); return; }
+  await openTask(currentTask.id);
+  refreshActiveTab();
 }
 
 async function runSearch() {

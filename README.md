@@ -91,8 +91,12 @@ curl 'localhost:3000/graph/search?q=data+model+for+cards&limit=5'
 | `GET` | `/graph/tasks/:id/packet?adapter=` | A task's full context, formatted by a registered adapter (default `generic-json`) |
 | `GET` | `/decisions?taskId=` | List decisions, optionally filtered to one task |
 | `POST` | `/decisions` | Record a decision (`{ taskId, note }`) |
+| `PATCH` | `/decisions/:id` | Correct a decision note (`{ note }`) - re-embeds it and re-checks conflicts |
+| `DELETE` | `/decisions/:id` | Delete a single decision note |
 | `GET` | `/debt?taskId=` | List debt, optionally filtered to one task |
 | `POST` | `/debt` | Record debt (`{ taskId, note }`) |
+| `PATCH` | `/debt/:id` | Correct a debt note (`{ note }`) - re-embeds it |
+| `DELETE` | `/debt/:id` | Delete a single debt note |
 | `GET` | `/adapters` | List the registered output adapters (`generic-json`, `cursor`) |
 | `GET` | `/graph/search?q=&limit=&projectId=` | Semantic search over decisions and debt, ranked by cosine similarity, each result with its parent task inline |
 | `GET` | `/projects` | List every project - a `"default"` project always exists |

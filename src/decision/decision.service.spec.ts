@@ -109,6 +109,39 @@ describeIfDb('DecisionService', () => {
       service.addDecision('NO-SUCH-TASK', 'orphan note'),
     ).rejects.toThrow('no such task: NO-SUCH-TASK');
   });
+
+  it('corrects a decision note in place and re-embeds it', async () => {
+    const created = await service.addDecision('TASK-1', 'Original note');
+
+    const updated = await service.updateDecision(created.id, 'Corrected note');
+
+    expect(updated.note).toBe('Corrected note');
+    expect(updated.embedding).toHaveLength(EMBEDDING_DIMENSIONS);
+
+    const found = await service.listDecisions('TASK-1');
+    expect(found).toHaveLength(1);
+    expect(found[0].note).toBe('Corrected note');
+  });
+
+  it('rejects updating a decision that does not exist', async () => {
+    await expect(service.updateDecision(999999, 'anything')).rejects.toThrow(
+      'no such decision: 999999',
+    );
+  });
+
+  it('deletes a single decision note without touching its task', async () => {
+    const created = await service.addDecision('TASK-1', 'Throwaway note');
+
+    await service.deleteDecision(created.id);
+
+    expect(await service.listDecisions('TASK-1')).toEqual([]);
+  });
+
+  it('rejects deleting a decision that does not exist', async () => {
+    await expect(service.deleteDecision(999999)).rejects.toThrow(
+      'no such decision: 999999',
+    );
+  });
 });
 
 describeIfDb('DecisionService conflict detection', () => {
@@ -181,6 +214,20 @@ describeIfDb('DecisionService conflict detection', () => {
     const result = await service.addDecision(
       'TASK-1',
       'Card domain model is a plain object, no behavior yet',
+    );
+
+    expect(result.conflicts).toEqual([]);
+  });
+
+  it('excludes the note being updated from its own conflict check', async () => {
+    const created = await service.addDecision(
+      'TASK-1',
+      'Chose SQLite for the MVP storage backend',
+    );
+
+    const result = await service.updateDecision(
+      created.id,
+      'Chose SQLite for the MVP storage backend',
     );
 
     expect(result.conflicts).toEqual([]);
